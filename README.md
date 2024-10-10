@@ -1,0 +1,1 @@
+# Dynamic_services_static_front_project
