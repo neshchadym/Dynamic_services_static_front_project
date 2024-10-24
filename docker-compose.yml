@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  backend_rds:
+    build: ./backend_rds
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  backend_redis:
+    build: ./backend_redis
+    ports:
+      - "8001:8000"
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+
+
