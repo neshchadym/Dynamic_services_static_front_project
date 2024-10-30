@@ -55,13 +55,17 @@ jobs:
                 \"name\": \"backend_rds\",
                 \"image\": \"${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest\",
                 \"essential\": true,
-                \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000}]
+                \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000}],
+                \"memory\": 256,
+                \"cpu\": 125 
               },
               {
                 \"name\": \"backend_redis\",
                 \"image\": \"${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest\",
                 \"essential\": true,
-                \"portMappings\": [{\"containerPort\": 8001, \"hostPort\": 8001}]
+                \"portMappings\": [{\"containerPort\": 8001, \"hostPort\": 8001}],
+                \"memory\": 256,
+                \"cpu\": 125
               }
             ]" \
             --query 'taskDefinition.taskDefinitionArn' --output text)
