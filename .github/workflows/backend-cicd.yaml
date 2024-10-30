@@ -1,0 +1,70 @@
+name: Build, Push, and Deploy to ECS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_push_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Amazon ECR
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}
+
+      - name: Build and Push backend_rds Docker image
+        run: |
+          docker build -t backend_rds ./backend_rds
+          docker tag backend_rds:latest ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest
+          docker push ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest
+
+      - name: Build and Push backend_redis Docker image
+        run: |
+          docker build -t backend_redis ./backend_redis
+          docker tag backend_redis:latest ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
+          docker push ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
+
+      - name: Update ECS Service
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+          ECS_TASK_DEFINITION_FAMILY: ${{ secrets.ECS_TASK_DEFINITION_FAMILY }}
+        run: |
+          # Get the current task definition
+          TASK_DEFINITION=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE \
+            --query 'services[0].taskDefinition' --output text)
+
+          # Register a new task definition with updated image
+          NEW_TASK_DEFINITION=$(aws ecs register-task-definition \
+            --family $ECS_TASK_DEFINITION_FAMILY \
+            --container-definitions "[
+              {
+                \"name\": \"backend_rds\",
+                \"image\": \"${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest\",
+                \"essential\": true,
+                \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000}]
+              },
+              {
+                \"name\": \"backend_redis\",
+                \"image\": \"${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest\",
+                \"essential\": true,
+                \"portMappings\": [{\"containerPort\": 8001, \"hostPort\": 8001}]
+              }
+            ]" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          # Update ECS service to use the new task definition
+          aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --task-definition $NEW_TASK_DEFINITION
