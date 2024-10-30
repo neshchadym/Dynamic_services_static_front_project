@@ -1,5 +1,6 @@
 {
-    "BACKEND_RDS_URL": "https://database-1.cf6smioy64y4.eu-central-1.rds.amazonaws.com:5432/test_connection/",
-    "BACKEND_REDIS_URL": "https://master.democluster.tmt1rr.euc1.cache.amazonaws.com:6582/test_connection/"
-  }
+  "BACKEND_RDS_URL": "http://35.159.111.237:8000/test_connection",
+  "BACKEND_REDIS_URL": "http://35.159.111.237:8001/test_connection"
+}
+
   
