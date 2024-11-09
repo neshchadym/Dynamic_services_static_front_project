@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 from django.middleware.security import SecurityMiddleware
 from django.middleware.common import CommonMiddleware
+from dotenv import load_dotenv
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -38,8 +40,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS_REDIS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
-
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 

@@ -1,4 +1,4 @@
-name: Build, Push, and Deploy to ECS
+name: Build, Push, and Deploy to ECS on EC2
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
         run: |
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}
-          
+
       - name: Build and Push backend_rds Docker image
         run: |
           docker build -t backend_rds ./backend_rds
@@ -46,10 +46,8 @@ jobs:
           NEW_TASK_DEFINITION=$(aws ecs register-task-definition \
             --family $ECS_TASK_DEFINITION_FAMILY \
             --network-mode awsvpc \
-            --requires-compatibilities FARGATE \
+            --requires-compatibilities EC2 \
             --execution-role-arn arn:aws:iam::575108959579:role/ecsTaskExecutionRole \
-            --cpu "256" \
-            --memory "512" \
             --container-definitions "[{
               \"name\": \"backend_rds\",
               \"image\": \"${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest\",
@@ -68,3 +66,4 @@ jobs:
             }]" \
             --query 'taskDefinition.taskDefinitionArn' --output text)
           aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --task-definition $NEW_TASK_DEFINITION
+
