@@ -54,7 +54,14 @@ jobs:
               \"essential\": true,
               \"portMappings\": [{\"containerPort\": 8000}],
               \"memory\": 256,
-              \"cpu\": 125
+              \"cpu\": 125,
+              \"environment\": [
+                {\"name\": \"DB_HOST\", \"value\": \"${{ secrets.DB_HOST }}\"},
+                {\"name\": \"DB_PORT\", \"value\": \"${{ secrets.DB_PORT }}\"},
+                {\"name\": \"DB_USER\", \"value\": \"${{ secrets.DB_USER }}\"},
+                {\"name\": \"DB_PASSWORD\", \"value\": \"${{ secrets.DB_PASSWORD }}\"},
+                {\"name\": \"DB_NAME\", \"value\": \"${{ secrets.DB_NAME }}\"}
+              ]
             },
             {
               \"name\": \"backend_redis\",
@@ -62,7 +69,11 @@ jobs:
               \"essential\": true,
               \"portMappings\": [{\"containerPort\": 8001}],
               \"memory\": 256,
-              \"cpu\": 125
+              \"cpu\": 125,
+              \"environment\": [
+                {\"name\": \"REDIS_HOST\", \"value\": \"${{ secrets.REDIS_HOST }}\"},
+                {\"name\": \"REDIS_PORT\", \"value\": \"${{ secrets.REDIS_PORT }}\"}
+              ]
             }]" \
             --query 'taskDefinition.taskDefinitionArn' --output text)
           aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --task-definition $NEW_TASK_DEFINITION
