@@ -42,6 +42,7 @@ jobs:
           ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
           ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
           ECS_TASK_DEFINITION_FAMILY: ${{ secrets.ECS_TASK_DEFINITION_FAMILY }}
+          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
         run: |
           NEW_TASK_DEFINITION=$(aws ecs register-task-definition \
             --family $ECS_TASK_DEFINITION_FAMILY \
