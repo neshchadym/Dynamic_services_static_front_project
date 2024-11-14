@@ -1,6 +1,6 @@
 {
-  "BACKEND_RDS_URL": "https://y0lu3cc2x9.execute-api.eu-central-1.amazonaws.com/Stage1/rds/",
-  "BACKEND_REDIS_URL": "https://y0lu3cc2x9.execute-api.eu-central-1.amazonaws.com/Stage1/redis/"
+  "BACKEND_RDS_URL": "http://http://3.127.149.120:8000/",
+  "BACKEND_REDIS_URL": "http://http://3.127.149.120:8001/"
 }
 
 
