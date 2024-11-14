@@ -34,50 +34,19 @@ jobs:
           docker tag backend_redis:latest ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
           docker push ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
 
-      - name: Debugging
-        run: |
-          echo "EC2_HOST is: $EC2_HOST"
-          echo "SSH_KEY length is: ${#SSH_KEY}"
-
       - name: SSH into EC2 and Deploy Containers
         env:
-          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          ECR_REPOSITORY_BACKEND_RDS: ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}
-          ECR_REPOSITORY_BACKEND_REDIS: ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          REDIS_HOST: ${{ secrets.REDIS_HOST }}
-          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}  # Add your EC2 public IP here as a secret
+          EC2_USER: ec2-user  # Default user for Amazon Linux
         run: |
-          echo "$SSH_KEY" > key.pem
+          echo "$SSH_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
-          ssh -t -o StrictHostKeyChecking=no -i key.pem ec2-user@$EC2_HOST << 'EOF'
-            # Pull the latest images from ECR
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_BACKEND_RDS
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_BACKEND_REDIS
-
-            docker pull $ECR_REPOSITORY_BACKEND_RDS:latest
-            docker pull $ECR_REPOSITORY_BACKEND_REDIS:latest
-
-            # Stop existing containers if they are running
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            docker pull ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest
+            docker pull ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
             docker stop backend_rds || true && docker rm backend_rds || true
             docker stop backend_redis || true && docker rm backend_redis || true
-
-            # Run new containers
-            docker run -d --name backend_rds -p 8000:8000 \
-              -e DB_HOST=$DB_HOST \
-              -e DB_PORT=$DB_PORT \
-              -e DB_USER=$DB_USER \
-              -e DB_PASSWORD=$DB_PASSWORD \
-              -e DB_NAME=$DB_NAME \
-              $ECR_REPOSITORY_BACKEND_RDS:latest
-
-            docker run -d --name backend_redis -p 8001:8001 \
-              -e REDIS_HOST=$REDIS_HOST \
-              -e REDIS_PORT=$REDIS_PORT \
-              $ECR_REPOSITORY_BACKEND_REDIS:latest
+            docker run -d --name backend_rds -p 8000:8000 ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest
+            docker run -d --name backend_redis -p 8001:8001 ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
           EOF
