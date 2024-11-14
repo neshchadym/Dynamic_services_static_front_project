@@ -37,8 +37,9 @@ jobs:
       - name: SSH into EC2 and Deploy Containers
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}  # Add your EC2 public IP here as a secret
-          EC2_USER: ec2-user  # Default user for Amazon Linux
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ec2-user
+          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
         run: |
           echo "$SSH_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
@@ -47,6 +48,10 @@ jobs:
             docker pull ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
             docker stop backend_rds || true && docker rm backend_rds || true
             docker stop backend_redis || true && docker rm backend_redis || true
-            docker run -d --name backend_rds -p 8000:8000 ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest
-            docker run -d --name backend_redis -p 8001:8001 ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
+            docker run -d --name backend_rds -p 8000:8000 \
+              -e CORS_ALLOWED_ORIGINS="$CORS_ALLOWED_ORIGINS" \
+              ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest
+            docker run -d --name backend_redis -p 8001:8001 \
+              -e CORS_ALLOWED_ORIGINS="$CORS_ALLOWED_ORIGINS" \
+              ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
           EOF
