@@ -1,4 +1,4 @@
-name: Build, Push, and Deploy to ECS on EC2
+name: Build, Push, and Deploy to EC2
 
 on:
   push:
@@ -34,48 +34,47 @@ jobs:
           docker tag backend_redis:latest ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
           docker push ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest
 
-      - name: Update ECS Service
+      - name: SSH into EC2 and Deploy Containers
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
-          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
-          ECS_TASK_DEFINITION_FAMILY: ${{ secrets.ECS_TASK_DEFINITION_FAMILY }}
-          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          ECR_REPOSITORY_BACKEND_RDS: ${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}
+          ECR_REPOSITORY_BACKEND_REDIS: ${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
         run: |
-          NEW_TASK_DEFINITION=$(aws ecs register-task-definition \
-            --family $ECS_TASK_DEFINITION_FAMILY \
-            --network-mode awsvpc \
-            --requires-compatibilities EC2 \
-            --execution-role-arn arn:aws:iam::575108959579:role/ecsTaskExecutionRole \
-            --container-definitions "[{
-              \"name\": \"backend_rds\",
-              \"image\": \"${{ secrets.ECR_REPOSITORY_BACKEND_RDS }}:latest\",
-              \"essential\": true,
-              \"portMappings\": [{\"containerPort\": 8000}],
-              \"memory\": 256,
-              \"cpu\": 125,
-              \"environment\": [
-                {\"name\": \"DB_HOST\", \"value\": \"${{ secrets.DB_HOST }}\"},
-                {\"name\": \"DB_PORT\", \"value\": \"${{ secrets.DB_PORT }}\"},
-                {\"name\": \"DB_USER\", \"value\": \"${{ secrets.DB_USER }}\"},
-                {\"name\": \"DB_PASSWORD\", \"value\": \"${{ secrets.DB_PASSWORD }}\"},
-                {\"name\": \"DB_NAME\", \"value\": \"${{ secrets.DB_NAME }}\"}
-              ]
-            },
-            {
-              \"name\": \"backend_redis\",
-              \"image\": \"${{ secrets.ECR_REPOSITORY_BACKEND_REDIS }}:latest\",
-              \"essential\": true,
-              \"portMappings\": [{\"containerPort\": 8001}],
-              \"memory\": 256,
-              \"cpu\": 125,
-              \"environment\": [
-                {\"name\": \"REDIS_HOST\", \"value\": \"${{ secrets.REDIS_HOST }}\"},
-                {\"name\": \"REDIS_PORT\", \"value\": \"${{ secrets.REDIS_PORT }}\"}
-              ]
-            }]" \
-            --query 'taskDefinition.taskDefinitionArn' --output text)
-          aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --task-definition $NEW_TASK_DEFINITION
+          echo "$SSH_KEY" > key.pem
+          chmod 600 key.pem
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$EC2_HOST << 'EOF'
+            # Pull the latest images from ECR
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_BACKEND_RDS
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_BACKEND_REDIS
+
+            docker pull $ECR_REPOSITORY_BACKEND_RDS:latest
+            docker pull $ECR_REPOSITORY_BACKEND_REDIS:latest
+
+            # Stop existing containers if they are running
+            docker stop backend_rds || true && docker rm backend_rds || true
+            docker stop backend_redis || true && docker rm backend_redis || true
+
+            # Run new containers
+            docker run -d --name backend_rds -p 8000:8000 \
+              -e DB_HOST=$DB_HOST \
+              -e DB_PORT=$DB_PORT \
+              -e DB_USER=$DB_USER \
+              -e DB_PASSWORD=$DB_PASSWORD \
+              -e DB_NAME=$DB_NAME \
+              $ECR_REPOSITORY_BACKEND_RDS:latest
+
+            docker run -d --name backend_redis -p 8001:8001 \
+              -e REDIS_HOST=$REDIS_HOST \
+              -e REDIS_PORT=$REDIS_PORT \
+              $ECR_REPOSITORY_BACKEND_REDIS:latest
+          EOF
+
 
